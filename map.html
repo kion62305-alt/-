@@ -1,0 +1,554 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Umbrella Share | Map</title>
+
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;700&display=swap');
+
+    :root{
+      --bg:#f5f5f7;
+      --card:#ffffff;
+      --text:#1d1d1f;
+      --sub:#6e6e73;
+      --primary:#0071e3;
+      --primaryHover:#0077ed;
+      --shadow:0 6px 18px rgba(0,0,0,0.08);
+      --radius:16px;
+    }
+
+    *{ box-sizing:border-box; }
+    html,body{ height:100%; }
+    body{
+      margin:0;
+      font-family:'Noto Sans KR', sans-serif;
+      background:var(--bg);
+      color:var(--text);
+    }
+
+    .app{
+      display:grid;
+      grid-template-columns: 360px 1fr;
+      height:100vh;
+      gap:16px;
+      padding:16px;
+    }
+
+    @media (max-width: 900px){
+      .app{
+        grid-template-columns: 1fr;
+        grid-template-rows: 1fr auto;
+      }
+      .panel{ order:2; }
+      .mapWrap{ order:1; }
+    }
+
+    .panel{
+      display:flex;
+      flex-direction:column;
+      gap:12px;
+      min-height:0;
+    }
+
+    .topbar{
+      background:var(--card);
+      border-radius:var(--radius);
+      box-shadow:var(--shadow);
+      padding:14px 16px;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+    }
+
+    .brand{
+      display:flex;
+      flex-direction:column;
+      line-height:1.1;
+    }
+    .brand .title{ font-weight:700; font-size:18px; }
+    .brand .subtitle{ font-size:12px; color:var(--sub); }
+
+    .badge{
+      font-size:12px;
+      padding:6px 10px;
+      border-radius:999px;
+      background:#e8f0fe;
+      color:#1a73e8;
+      white-space:nowrap;
+    }
+    .badge.off{ background:#eee; color:#555; }
+
+    .card{
+      background:var(--card);
+      border-radius:var(--radius);
+      box-shadow:var(--shadow);
+      padding:14px 16px;
+    }
+
+    .card h3{
+      margin:0 0 8px 0;
+      font-size:14px;
+      color:var(--sub);
+      font-weight:700;
+      letter-spacing: -0.2px;
+    }
+
+    .row{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      margin:6px 0;
+    }
+
+    .big{
+      font-size:22px;
+      font-weight:700;
+    }
+
+    .small{
+      font-size:13px;
+      color:var(--sub);
+    }
+
+    .btnRow{
+      display:flex;
+      gap:8px;
+      margin-top:10px;
+    }
+
+    button{
+      border:none;
+      cursor:pointer;
+      border-radius:999px;
+      padding:10px 14px;
+      font-size:14px;
+      font-weight:700;
+    }
+    .primary{
+      background:var(--primary);
+      color:#fff;
+    }
+    .primary:hover{ background:var(--primaryHover); }
+    .ghost{
+      background:#f0f0f3;
+      color:var(--text);
+    }
+    .ghost:hover{ background:#e6e6ea; }
+
+    button:disabled{
+      background:#c7c7cc;
+      cursor:not-allowed;
+      color:#fff;
+    }
+
+    .menu{
+      display:flex;
+      gap:8px;
+    }
+    .linkBtn{
+      background:#f0f0f3;
+      color:var(--text);
+      font-weight:700;
+      padding:8px 12px;
+      border-radius:999px;
+      text-decoration:none;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      font-size:13px;
+    }
+
+    .mapWrap{
+      background:var(--card);
+      border-radius:var(--radius);
+      box-shadow:var(--shadow);
+      overflow:hidden;
+      position:relative;
+      min-height:320px;
+    }
+    #map{
+      width:100%;
+      height:100%;
+      min-height:320px;
+    }
+
+    .hint{
+      font-size:12px;
+      color:var(--sub);
+      margin-top:6px;
+    }
+
+    .divider{
+      height:1px;
+      background:#eee;
+      margin:10px 0;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="app">
+    <aside class="panel">
+      <div class="topbar">
+        <div class="brand">
+          <div class="title">Umbrella Share</div>
+          <div class="subtitle">내 위치 기반 스테이션 우산 공유</div>
+        </div>
+        <div id="authBadge" class="badge off">로그인 필요</div>
+      </div>
+
+      <div class="card" id="weatherCard">
+        <h3>오늘의 날씨</h3>
+        <div class="row">
+          <div>
+            <div id="weatherDate" class="small">-</div>
+            <div id="weatherLocation" class="big">-</div>
+            <div id="weatherDesc" class="small">-</div>
+          </div>
+          <div style="text-align:right;">
+            <img id="weatherIcon" src="" alt="" style="width:56px;height:56px;"/>
+            <div id="weatherTemp" class="big">-</div>
+          </div>
+        </div>
+        <div class="hint">GPS 허용 시 현재 위치 기준으로 표시돼요.</div>
+      </div>
+
+      <div class="card" id="myRentalCard">
+        <h3>내 대여 상태</h3>
+        <div class="row">
+          <div class="big" id="rentalStatus">-</div>
+          <div class="small" id="userUid">-</div>
+        </div>
+        <div class="divider"></div>
+        <div class="small">대여 시작: <span id="rentalStart">-</span></div>
+        <div class="small">반납 예정: <span id="rentalDeadline">-</span></div>
+        <div class="small">대여 위치: <span id="rentalStand">-</span></div>
+      </div>
+
+      <div class="card" id="stationCard">
+        <h3>선택한 스테이션</h3>
+        <div class="row">
+          <div>
+            <div class="big" id="stationName">지도에서 선택하세요</div>
+            <div class="small" id="stationMeta">-</div>
+          </div>
+          <div style="text-align:right;">
+            <div class="small">우산 수</div>
+            <div class="big"><span id="umbrellaCount">0</span></div>
+          </div>
+        </div>
+
+        <div class="btnRow">
+          <button id="reserveBtn" class="primary" disabled>예약</button>
+          <button id="returnBtn" class="ghost" disabled>반납</button>
+        </div>
+
+        <div class="hint" id="stationHint">마커를 클릭하면 수량이 업데이트돼요.</div>
+      </div>
+
+      <div class="menu">
+        <a class="linkBtn" href="information_my.html">서비스 소개</a>
+        <a class="linkBtn" href="login_my.html" id="loginLink">로그인</a>
+        <a class="linkBtn" href="index.html" id="logoutLink" style="display:none;">로그아웃</a>
+      </div>
+    </aside>
+
+    <main class="mapWrap">
+      <div id="map"></div>
+    </main>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-app.js";
+    import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-auth.js";
+    import { getDatabase, ref, onValue, off } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-database.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyCl5Ghpk2esbDZprJQIshjWHYxFXvWRh68",
+      authDomain: "raspi-autoumb.firebaseapp.com",
+      databaseURL: "https://raspi-autoumb-default-rtdb.firebaseio.com",
+      projectId: "raspi-autoumb",
+      storageBucket: "raspi-autoumb.firebasestorage.app",
+      messagingSenderId: "702710947231",
+      appId: "1:702710947231:web:a25cceb21ebff2b52f31aa"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getDatabase(app);
+
+    const state = {
+      user: null,
+      map: null,
+      selected: null,
+      umbrellaUnsub: null,
+      rentalUnsub: null,
+      userLocation: null
+    };
+
+    const STANDS = [
+      { id:"stand_1", title:"평택역", lat:36.991412, lng:127.084624, dbRef:"umbrella_stands/umbrellaStands/stand_1", reservationPage:"reservation_my.html", returnPage:"return.html" },
+      { id:"stand_2", title:"평택지제역", lat:37.019019, lng:127.070529, dbRef:"umbrella_stands/umbrellaStands/stand_2", reservationPage:"reservation_my.html", returnPage:"return.html" },
+      { id:"stand_3", title:"서정리역", lat:37.056667, lng:127.053050, dbRef:"umbrella_stands/umbrellaStands/stand_3", reservationPage:"reservation_my.html", returnPage:"return.html" },
+    ];
+
+    const $ = (id) => document.getElementById(id);
+
+    const toKR = (isoString) => {
+      if (!isoString) return "-";
+      const d = new Date(isoString);
+      return d.toLocaleString("ko-KR", {
+        month:"2-digit", day:"2-digit",
+        hour:"2-digit", minute:"2-digit",
+        timeZone:"Asia/Seoul",
+        hour12:true
+      });
+    };
+
+    function renderAuth(){
+      const badge = $("authBadge");
+      const loginLink = $("loginLink");
+      const logoutLink = $("logoutLink");
+      const userUid = $("userUid");
+
+      if(state.user){
+        badge.classList.remove("off");
+        badge.textContent = "로그인됨";
+        loginLink.style.display = "none";
+        logoutLink.style.display = "inline-flex";
+        userUid.textContent = state.user.uid;
+      }else{
+        badge.classList.add("off");
+        badge.textContent = "로그인 필요";
+        loginLink.style.display = "inline-flex";
+        logoutLink.style.display = "none";
+        userUid.textContent = "-";
+      }
+    }
+
+    function renderStation(){
+      const reserveBtn = $("reserveBtn");
+      const returnBtn = $("returnBtn");
+
+      if(!state.selected){
+        $("stationName").textContent = "지도에서 선택하세요";
+        $("stationMeta").textContent = "-";
+        $("umbrellaCount").textContent = "0";
+        reserveBtn.disabled = true;
+        returnBtn.disabled = true;
+        return;
+      }
+
+      $("stationName").textContent = state.selected.title;
+      $("stationMeta").textContent = `스테이션 ID: ${state.selected.id}`;
+
+      if(!state.user){
+        reserveBtn.disabled = true;
+        returnBtn.disabled = true;
+      }
+    }
+ 
+    function setUmbrellaCount(count){
+      $("umbrellaCount").textContent = String(count ?? 0);
+      if((count ?? 0) === 0){
+        $("stationHint").textContent = "현재 우산이 없어요. 다른 스테이션을 선택해보세요.";
+      }else{
+        $("stationHint").textContent = "예약 버튼을 눌러 진행할 수 있어요.";
+      }
+    }
+
+    function renderRental(rentalData){
+      const reserveBtn = $("reserveBtn");
+      const returnBtn = $("returnBtn");
+
+      if(rentalData && rentalData.rented === true){
+        $("rentalStatus").textContent = "대여 중";
+        $("rentalStart").textContent = toKR(rentalData.rentedAt);
+        $("rentalDeadline").textContent = toKR(rentalData.dueAt);
+
+        const standName =
+          rentalData.stand === "stand_1" ? "평택역" :
+          rentalData.stand === "stand_2" ? "평택지제역" :
+          rentalData.stand === "stand_3" ? "서정리역" : "-";
+        $("rentalStand").textContent = standName;
+
+        reserveBtn.disabled = true;
+        reserveBtn.textContent = "대여 중";
+        returnBtn.disabled = false;
+        returnBtn.textContent = "반납";
+      }else{
+        $("rentalStatus").textContent = "대여 가능";
+        $("rentalStart").textContent = "-";
+        $("rentalDeadline").textContent = "-";
+        $("rentalStand").textContent = "-";
+
+        reserveBtn.textContent = "예약";
+        returnBtn.textContent = "반납";
+        returnBtn.disabled = true;
+      }
+    }
+
+    function watchRental(userId){
+      if(state.rentalUnsub) state.rentalUnsub();
+
+      const rentalRef = ref(db, `users/${userId}/currentRental`);
+      const handler = (snap) => renderRental(snap.val());
+
+      onValue(rentalRef, handler);
+
+      state.rentalUnsub = () => off(rentalRef, "value", handler);
+    }
+
+    function watchUmbrellaCount(stand){
+      if(state.umbrellaUnsub) state.umbrellaUnsub();
+
+      const countRef = ref(db, `${stand.dbRef}/totalUmbrellas`);
+      const handler = (snap) => {
+        const count = snap.val();
+        setUmbrellaCount(count);
+
+        const reserveBtn = $("reserveBtn");
+        if(state.user){
+          if((count ?? 0) > 0 && reserveBtn.textContent === "예약"){
+            reserveBtn.disabled = false;
+          }else if(reserveBtn.textContent === "예약"){
+            reserveBtn.disabled = true;
+          }
+        }
+      };
+
+      onValue(countRef, handler);
+      state.umbrellaUnsub = () => off(countRef, "value", handler);
+    }
+
+    function initMap(){ 
+      if(!window.google || !window.google.maps) return;
+
+      state.map = new google.maps.Map(document.getElementById("map"), {
+        zoom: 14,
+        center: { lat: 37.011761, lng: 127.264226 },
+        disableDefaultUI: false
+      });
+
+      STANDS.forEach((s) => {
+        const marker = new google.maps.Marker({
+          position: { lat:s.lat, lng:s.lng },
+          map: state.map,
+          title: s.title,
+          animation: google.maps.Animation.DROP
+        });
+
+        marker.addListener("click", () => {
+          state.selected = s;
+          renderStation();
+          watchUmbrellaCount(s);
+        });
+      });
+
+      getUserLocationAndWeather();
+      bindButtons();
+    }
+
+    function bindButtons(){
+      $("reserveBtn").addEventListener("click", () => {
+        if(!state.user) return alert("로그인 후 이용할 수 있어요.");
+        if(!state.selected) return alert("스테이션을 선택해주세요.");
+        if(confirm(`${state.selected.title}에서 우산을 예약할까요?`)){
+          window.location.href = `${state.selected.reservationPage}?stand=${state.selected.id}`;
+        }
+      });
+
+    $("returnBtn").addEventListener("click", () => {
+      if(!state.user) return alert("로그인 후 이용할 수 있어요.");
+      if(!state.selected) return alert("스테이션을 선택해주세요.");
+
+      if(confirm("우산을 반납할까요?")){
+        window.location.href = `qr_my.html?stand=${state.selected.id}&action=return`;
+      }
+    });
+
+      $("logoutLink").addEventListener("click", async (e) => {
+        e.preventDefault();
+        await signOut(auth);
+        window.location.href = "login_my.html";
+      });
+    }
+
+    function getUserLocationAndWeather(){
+      if(!navigator.geolocation){
+        $("weatherDesc").textContent = "위치 기능을 지원하지 않는 브라우저예요.";
+        return;
+      }
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          state.userLocation = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+
+          new google.maps.Marker({
+            position: state.userLocation,
+            map: state.map,
+            title: "현재 위치",
+            icon: {
+              path: google.maps.SymbolPath.CIRCLE,
+              scale: 7,
+              fillColor: "#4285F4",
+              fillOpacity: 1,
+              strokeWeight: 2,
+              strokeColor: "#FFFFFF"
+            }
+          });
+
+          state.map.setCenter(state.userLocation);
+          fetchWeather(state.userLocation.lat, state.userLocation.lng);
+        },
+        () => { $("weatherDesc").textContent = "위치 권한이 꺼져 있어요."; },
+        { enableHighAccuracy:true, timeout:10000, maximumAge:0 }
+      );
+    }
+
+    function fetchWeather(lat, lon){
+      const apiKey = "03f45bd293e4d16b87f3c191ba70fd0f";
+      const url = `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&appid=${apiKey}&units=metric&lang=kr`;
+
+      fetch(url)
+        .then(r => r.json())
+        .then(data => {
+          const date = new Date();
+          $("weatherDate").textContent = date.toLocaleDateString("ko-KR", {
+            year:"numeric", month:"2-digit", day:"2-digit", weekday:"long"
+          });
+          $("weatherLocation").textContent = data.name ?? "-";
+          $("weatherTemp").textContent = `${data.main?.temp ?? "-"}°C`;
+          $("weatherDesc").textContent = data.weather?.[0]?.description ?? "-";
+          const icon = data.weather?.[0]?.icon;
+          $("weatherIcon").src = icon ? `https://openweathermap.org/img/wn/${icon}@2x.png` : "";
+        })
+        .catch(() => { $("weatherDesc").textContent = "날씨 정보를 불러오지 못했어요."; });
+    }
+
+    onAuthStateChanged(auth, (user) => {
+      state.user = user || null;
+      renderAuth();
+      renderStation();
+
+      if(state.user){
+        watchRental(state.user.uid);
+      }else{
+        renderRental(null);
+      }
+
+      if(!state.map) initMap();
+    });
+
+    window.initMap = initMap;
+  </script>
+
+  <script
+    src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBZtuZ5c40C87BhqmiCmRlCyNF0XnzeqJs&callback=initMap"
+    async defer
+  ></script>
+</body>
+</html>

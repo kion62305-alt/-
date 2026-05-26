@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Umbrella Share | Reservation</title>
+
+  <style>
+    :root{
+      --bg:#f5f5f7;
+      --card:#ffffff;
+      --text:#1d1d1f;
+      --sub:#6e6e73;
+      --primary:#0071e3;
+      --primaryHover:#0077ed;
+      --line:#e5e5ea;
+      --shadow:0 6px 18px rgba(0,0,0,0.08);
+      --radius:16px;
+    }
+
+    *{ box-sizing:border-box; }
+    body{
+      margin:0;
+      font-family:'Noto Sans KR', sans-serif;
+      background:var(--bg);
+      color:var(--text);
+      display:flex;
+      justify-content:center;
+      padding:40px 16px;
+    }
+
+    .panel{
+      width:min(640px, 100%);
+      background:var(--card);
+      border-radius:var(--radius);
+      box-shadow:var(--shadow);
+      padding:24px 24px 12px 24px;
+    }
+
+    h1{
+      margin:0 0 8px;
+      font-size:28px;
+    }
+
+    .sub{
+      margin:0 0 20px;
+      color:var(--sub);
+      font-size:14px;
+    }
+
+    #stationInfo{
+      background:#eef5ff;
+      color:#1a73e8;
+      padding:12px 14px;
+      border-radius:12px;
+      font-weight:600px;
+      margin-bottom:20px;
+    }
+
+    #lockerList{
+      display:grid;
+      grid-template-columns:repeat(2, 1fr);
+      gap:12px;
+      margin-bottom:20px;
+    }
+
+    .locker-card{
+      border:1px solid var(--line);
+      background:#fff;
+      border-radius:14px;
+      padding:18px 14px;
+      font-size:16px;
+      font-weight:700;
+      cursor:pointer;
+      transition:all .2s ease;
+    }
+
+    .locker-card:hover{
+      border-color:var(--primary);
+    }
+
+    .locker-card.selected{
+      background:#e8f0fe;
+      border-color:var(--primary);
+      color:var(--primary);
+    }
+
+    #reserveBtn{
+      width:100%;
+      border:none;
+      border-radius:999px;
+      padding:14px;
+      font-size:16px;
+      font-weight:700;
+      color:#fff;
+      background:var(--primary);
+      cursor:pointer;
+    }
+
+    #goQrBtn{
+      width:100%;
+      border:none;
+      border-radius:999px;
+      padding:14px;
+      font-size:16px;
+      font-weight:700;
+      color:#fff;
+      background:var(--primary);
+      cursor:pointer;
+      margin-top:20px;
+    }
+
+    #reserveBtn:hover{
+      background:var(--primaryHover);
+    }
+
+    #statusMsg{
+      margin-top:14px;
+      font-size:14px;
+      color:var(--sub);
+      text-align:center;
+      min-height:20px;
+    }
+  </style>
+</head>
+<body>
+  <div class="panel">
+    <h1>우산 예약</h1>
+    <p class="sub">선택한 스테이션에서 보관함을 선택하세요.</p>
+
+    <div id="stationInfo">스테이션 불러오는 중...</div>
+
+    <div id="lockerList">
+      <button class="locker-card" data-box="1">1번 보관함</button>
+      <button class="locker-card" data-box="2">2번 보관함</button>
+    </div>
+
+    <button id="reserveBtn">예약하기</button>
+    <button id="goQrBtn">QR 인증하기</button>
+
+    <p id="statusMsg"></p>
+  </div>
+
+ <script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-app.js";
+  import { getDatabase, ref, get, update } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-database.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyCl5Ghpk2esbDZprJQIshjWHYxFXvWRh68",
+    authDomain: "raspi-autoumb.firebaseapp.com",
+    databaseURL: "https://raspi-autoumb-default-rtdb.firebaseio.com",
+    projectId: "raspi-autoumb",
+    storageBucket: "raspi-autoumb.firebasestorage.app",
+    messagingSenderId: "702710947231",
+    appId: "1:702710947231:web:a25cceb21ebff2b52f31aa"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db = getDatabase(app);
+
+  const stationInfo = document.getElementById("stationInfo");
+  const reserveBtn = document.getElementById("reserveBtn");
+  const statusMsg = document.getElementById("statusMsg");
+  const lockerCards = document.querySelectorAll(".locker-card");
+  const goQrBtn = document.getElementById("goQrBtn");
+
+  let selectedBox = null;
+  let isReserved = false;
+
+  const params = new URLSearchParams(window.location.search);
+  const standId = params.get("stand");
+
+  const standNames = {
+    stand_1: "평택역",
+    stand_2: "평택지제역",
+    stand_3: "서정리역"
+  };
+
+  if (standId && standNames[standId]) {
+    stationInfo.textContent = `${standNames[standId]} 스테이션`;
+  } else {
+    stationInfo.textContent = "선택한 스테이션 정보가 없습니다.";
+  }
+
+  lockerCards.forEach((card) => {
+    card.addEventListener("click", () => {
+      lockerCards.forEach((btn) => btn.classList.remove("selected"));
+      card.classList.add("selected");
+      selectedBox = card.dataset.box;
+      statusMsg.textContent = `${selectedBox}번 보관함을 선택했습니다.`;
+    });
+  });
+
+  reserveBtn.addEventListener("click", async () => {
+    if (!standId) {
+      statusMsg.textContent = "스테이션 정보가 없어 예약할 수 없습니다.";
+      return;
+    }
+
+    if (!selectedBox) {
+      statusMsg.textContent = "보관함을 먼저 선택해주세요.";
+      return;
+    }
+
+    const countRef = ref(db, `umbrella_stands/umbrellaStands/${standId}/totalUmbrellas`);
+    const snap = await get(countRef);
+    const currentCount = snap.val() ?? 0;
+
+    if (currentCount <= 0) {
+      statusMsg.textContent = "현재 대여 가능한 우산이 없습니다.";
+      return;
+    }
+
+    await update(ref(db, `umbrella_stands/umbrellaStands/${standId}`), {
+      totalUmbrellas: currentCount - 1
+    });
+
+    isReserved = true;
+    statusMsg.textContent = `${standNames[standId]} ${selectedBox}번 보관함 예약 완료! 남은 우산: ${currentCount - 1}개`;
+  });
+
+  goQrBtn.addEventListener("click", () => {
+    if (!standId) {
+      statusMsg.textContent = "스테이션 정보가 없습니다.";
+      return;
+    }
+
+    if (!selectedBox) {
+      statusMsg.textContent = "보관함을 먼저 선택해주세요.";
+      return;
+    }
+
+    if (!isReserved) {
+      statusMsg.textContent = "먼저 예약하기를 눌러주세요.";
+      return;
+    }
+
+    window.location.href = `qr_my.html?stand=${standId}&box=${selectedBox}`;
+  });
+</script>
+</body>
+</html>

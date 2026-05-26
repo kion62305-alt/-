@@ -1,0 +1,113 @@
+const int switchPin1 = 2;
+const int relayPin1 = 8;
+
+const int switchPin2 = 3;
+const int relayPin2 = 7;
+
+int lastState1 = HIGH;
+int lastState2 = HIGH;
+
+// 기본값: 예약/대여 모드
+// false = 스위치 눌려도 팬 안 돎
+// true = 스위치 눌리면 팬 돎
+bool returnMode1 = false;
+bool returnMode2 = false;
+
+void setup() {
+  pinMode(switchPin1, INPUT_PULLUP);
+  pinMode(relayPin1, OUTPUT);
+
+  pinMode(switchPin2, INPUT_PULLUP);
+  pinMode(relayPin2, OUTPUT);
+
+  Serial.begin(9600);
+
+  lastState1 = digitalRead(switchPin1);
+  lastState2 = digitalRead(switchPin2);
+
+  // 시작할 때는 기본적으로 팬 OFF
+  digitalWrite(relayPin1, HIGH);
+  digitalWrite(relayPin2, HIGH);
+
+  if (lastState1 == LOW) {
+    Serial.println("BOX_1:1");
+  } else {
+    Serial.println("BOX_1:0");
+  }
+
+  if (lastState2 == LOW) {
+    Serial.println("BOX_2:1");
+  } else {
+    Serial.println("BOX_2:0");
+  }
+}
+
+void readModeCommand() {
+  if (Serial.available()) {
+    String cmd = Serial.readStringUntil('\n');
+    cmd.trim();
+
+    if (cmd == "BOX_1:RENT") {
+      returnMode1 = false;
+      digitalWrite(relayPin1, HIGH); // 예약/대여 모드에서는 팬 OFF
+      Serial.println("BOX_1 MODE RENT");
+    }
+
+    else if (cmd == "BOX_1:RETURN") {
+      returnMode1 = true;
+      Serial.println("BOX_1 MODE RETURN");
+    }
+
+    else if (cmd == "BOX_2:RENT") {
+      returnMode2 = false;
+      digitalWrite(relayPin2, HIGH);
+      Serial.println("BOX_2 MODE RENT");
+    }
+
+    else if (cmd == "BOX_2:RETURN") {
+      returnMode2 = true;
+      Serial.println("BOX_2 MODE RETURN");
+    }
+  }
+}
+
+void loop() {
+  readModeCommand();
+
+  int state1 = digitalRead(switchPin1);
+  int state2 = digitalRead(switchPin2);
+
+  // BOX_1 제어
+  if (returnMode1 && state1 == LOW) {
+    digitalWrite(relayPin1, LOW);   // 반납 모드 + 스위치 눌림 → 팬 ON
+  } else {
+    digitalWrite(relayPin1, HIGH);  // 그 외에는 팬 OFF
+  }
+
+  if (state1 != lastState1) {
+    if (state1 == LOW) {
+      Serial.println("BOX_1:1");
+    } else {
+      Serial.println("BOX_1:0");
+    }
+    lastState1 = state1;
+  }
+
+  // BOX_2 제어
+  if (returnMode2 && state2 == LOW) {
+    digitalWrite(relayPin2, LOW);   // 반납 모드 + 스위치 눌림 → 팬 ON
+  } else {
+    digitalWrite(relayPin2, HIGH);  // 그 외에는 팬 OFF
+  }
+
+  if (state2 != lastState2) {
+    if (state2 == LOW) {
+      Serial.println("BOX_2:1");
+    } else {
+      Serial.println("BOX_2:0");
+    }
+    lastState2 = state2;
+  }
+
+  delay(30);
+}

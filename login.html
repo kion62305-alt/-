@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>로그인</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;700&display=swap" rel="stylesheet">
+
+  <style>
+    :root{
+      --bg:#f6f7fb;
+      --ink:#15161a;
+      --muted:#6b7280;
+      --card:#ffffff;
+      --line:#e7e9ee;
+      --primary:#1f6feb;
+      --primary2:#2a7bff;
+      --shadow: 0 16px 40px rgba(0,0,0,.08);
+      --radius: 16px;
+    }
+
+    *{ box-sizing: border-box; }
+    html, body{
+      height: 100%;
+      margin: 0;
+      font-family: "Noto Sans KR", sans-serif;
+      color: var(--ink);
+      background: radial-gradient(1200px 600px at 20% 0%, #eef5ff 0%, transparent 60%),
+                  radial-gradient(1000px 500px at 100% 20%, #f1efff 0%, transparent 55%),
+                  var(--bg);
+    }
+
+    /* 상단 바 */
+    .appbar{
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 14px 16px;
+      background: rgba(255,255,255,.65);
+      backdrop-filter: blur(10px);
+      border-bottom: 1px solid rgba(231,233,238,.8);
+    }
+    .brand{
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      text-decoration: none;
+      color: var(--ink);
+      font-weight: 800;
+      letter-spacing: -.2px;
+    }
+    .brand-badge{
+      width: 34px;
+      height: 34px;
+      border-radius: 12px;
+      display: grid;
+      place-items: center;
+      background: #0b1220;
+      color: #fff;
+      font-size: 18px;
+    }
+
+    .iconbtn{
+      border: 1px solid var(--line);
+      background: rgba(255,255,255,.9);
+      border-radius: 999px;
+      padding: 10px 14px;
+      cursor: pointer;
+      box-shadow: 0 6px 16px rgba(0,0,0,.08);
+      font-size: 18px;
+      line-height: 1;
+    }
+
+    /* 레이아웃 */
+    .stage{
+      min-height: calc(100vh - 62px);
+      display: grid;
+      place-items: center;
+      padding: 28px 16px 48px;
+    }
+    .panel{
+      width: min(620px, 100%);
+      background: var(--card);
+      border: 1px solid rgba(231,233,238,.9);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 24px 22px;
+    }
+    .panel h1{
+      margin: 0 0 18px;
+      text-align: center;
+      font-size: 30px;
+      letter-spacing: -.4px;
+    }
+    .sub{
+      margin: -6px 0 18px;
+      text-align: center;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    /* 폼 */
+    .form{
+      display: grid;
+      gap: 14px;
+      margin-top: 8px;
+    }
+    .row{
+      display: grid;
+      gap: 8px;
+    }
+    .row label{
+      font-weight: 700;
+      font-size: 14px;
+    }
+    .row input{
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 12px 12px;
+      font-size: 16px;
+      outline: none;
+      background: #fff;
+    }
+    .row input:focus{
+      border-color: rgba(31,111,235,.6);
+      box-shadow: 0 0 0 4px rgba(31,111,235,.12);
+    }
+
+    .cta{
+      margin-top: 4px;
+      border: none;
+      border-radius: 12px;
+      padding: 12px 14px;
+      font-size: 16px;
+      cursor: pointer;
+      background: linear-gradient(135deg, var(--primary), var(--primary2));
+      color: #fff;
+      font-weight: 800;
+      transition: transform .06s ease, filter .2s ease;
+    }
+    .cta:hover{ filter: brightness(1.03); }
+    .cta:active{ transform: translateY(1px); }
+    .cta:disabled{ opacity: .6; cursor: not-allowed; }
+
+    .hint{
+      margin: 10px 0 0;
+      text-align: center;
+      color: var(--muted);
+      font-size: 14px;
+    }
+    .hint a{
+      color: var(--primary);
+      text-decoration: none;
+      font-weight: 800;
+    }
+    .hint a:hover{ text-decoration: underline; }
+
+    .status{ /*로그인 상태 글자*/
+      margin: 8px 0 0;
+      text-align: center;
+      font-size: 14px;
+      min-height: 18px;
+      color: var(--muted);
+    }
+    .status.is-error{ color: #c1121f; }
+    .status.is-ok{ color: #0a7a2f; }
+
+    /* 사이드 메뉴(드로어) */
+    .scrim{
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,.28);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity .2s ease;
+      z-index: 30;
+    }
+
+    .drawer{
+      position: fixed;
+      top: 0;
+      right: 0;
+      height: 100dvh;
+      width: 320px;
+      background: rgba(255,255,255,.92);
+      backdrop-filter: blur(12px);
+      border-left: 1px solid rgba(231,233,238,.9);
+      transform: translateX(110%);
+      transition: transform .25s ease;
+      z-index: 40;
+      padding: 16px 14px;
+      display: grid;
+      grid-template-rows: auto 1fr;
+      gap: 10px;
+      box-shadow: -30px 0 70px rgba(0,0,0,.10);
+    }
+    .drawer-head{
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 6px 6px 10px;
+      border-bottom: 1px solid rgba(231,233,238,.9);
+    }
+    .drawer-title{
+      font-weight: 900;
+      letter-spacing: -.2px;
+    }
+    .closebtn{
+      border: 1px solid var(--line);
+      background: #fff;
+      border-radius: 999px;
+      padding: 8px 10px;
+      cursor: pointer;
+      font-size: 14px;
+    }
+
+    .menu{
+      margin: 0;
+      padding: 6px 4px;
+      list-style: none;
+      display: grid;
+      gap: 6px;
+      align-content: start;
+    }
+    .menu a, .menu button{
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      text-decoration: none;
+      color: var(--ink);
+      padding: 12px 12px;
+      border-radius: 14px;
+      border: 1px solid transparent;
+      background: transparent;
+      font-size: 15px;
+      cursor: pointer;
+    }
+    .menu a:hover, .menu button:hover{
+      background: rgba(0,0,0,.05);
+      border-color: rgba(0,0,0,.04);
+    }
+    .menu small{
+      color: var(--muted);
+      font-weight: 700;
+    }
+
+    /* 열림 상태 */
+    body[data-drawer="open"] .scrim{
+      opacity: 1;
+      pointer-events: auto;
+    }
+    body[data-drawer="open"] .drawer{
+      transform: translateX(0);
+    }
+  </style>
+</head>
+
+<body data-drawer="closed"> <!--사이드 메뉴가 닫힌 상태-->
+  <header class="appbar">
+    <a class="brand" href="index.html">
+      <span class="brand-badge">☂</span>
+      <span>Umbrella Share</span>
+    </a>
+
+    <button class="iconbtn" id="menuToggle" type="button" aria-label="메뉴 열기">
+      ☰
+    </button>
+  </header>
+
+  <div class="scrim" id="scrim" hidden></div>
+
+  <aside class="drawer" id="drawer" aria-label="사이드 메뉴" aria-hidden="true"> <!--aria-hidden: 접근성에서 숨겨라-->
+    <div class="drawer-head">
+      <div class="drawer-title">메뉴</div>
+      <button class="closebtn" id="menuClose" type="button">닫기</button>
+    </div>
+
+    <ul class="menu" id="menuList"></ul> <!--class: 같은 종류끼리 묶는 이름, id: 딱 하나만 가린키는 이름-->
+  </aside>
+
+  <main class="stage">
+    <section class="panel">
+      <h1>로그인</h1>
+      <p class="sub">이메일과 비밀번호로 로그인해 주세요.</p>
+
+      <form class="form" id="loginForm" novalidate>
+        <div class="row">
+          <label for="emailInput">이메일</label> <!--for:라벨이 어떤 입력칸을 설명하는지 연결-->
+          <input id="emailInput" type="email" autocomplete="email" required placeholder="example@email.com" />
+        </div> <!--autocomplete: 이메일 입력칸, required placeholder: 칸 안에 흐릿하게 보이는 글자 -->
+
+        <div class="row">
+          <label for="pwInput">비밀번호</label>
+          <input id="pwInput" type="password" autocomplete="current-password" required placeholder="비밀번호를 입력하세요" />
+        </div>
+
+        <button class="cta" id="loginBtn" type="submit">로그인하기</button>
+
+        <p class="status" id="statusMsg"></p>
+
+        <p class="hint">
+          아직 회원이 아니신가요?
+          <a href="signup_my.html">회원가입</a>
+        </p>
+      </form>
+    </section>
+  </main>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-app.js";
+    import {
+      getAuth,
+      signInWithEmailAndPassword,
+      onAuthStateChanged,
+      signOut
+    } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-auth.js";
+
+    
+    const firebaseConfig = {
+      apiKey: "AIzaSyCl5Ghpk2esbDZprJQIshjWHYxFXvWRh68",
+      authDomain: "raspi-autoumb.firebaseapp.com",
+      projectId: "raspi-autoumb",
+      storageBucket: "raspi-autoumb.firebasestorage.app",
+      messagingSenderId: "702710947231",
+      appId: "1:702710947231:web:a25cceb21ebff2b52f31aa"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+
+    // DOM 유틸
+    const $ = (sel) => document.querySelector(sel);
+
+    const body = document.body;
+    const scrim = $("#scrim");
+    const drawer = $("#drawer");
+    const menuList = $("#menuList");
+    const menuToggle = $("#menuToggle");
+    const menuClose = $("#menuClose");
+
+    const loginForm = $("#loginForm");
+    const emailInput = $("#emailInput");
+    const pwInput = $("#pwInput");
+    const loginBtn = $("#loginBtn");
+    const statusMsg = $("#statusMsg");
+
+    // 상태 메시지
+    function setStatus(text, type = "muted") { // muted: 문구를 어떤 느낌의 색으로 보여줄지
+      statusMsg.textContent = text || ""; // text값이 있으면 text, 없으면""
+      statusMsg.classList.remove("is-error", "is-ok");
+      if (type === "error") statusMsg.classList.add("is-error");
+      if (type === "ok") statusMsg.classList.add("is-ok");
+    }
+
+    // 드로어 열고 닫기(어두운 배경막)
+    function openDrawer() {
+      body.dataset.drawer = "open";
+      drawer.setAttribute("aria-hidden", "false");
+      scrim.hidden = false;
+    }
+
+    function closeDrawer() {
+      body.dataset.drawer = "closed";
+      drawer.setAttribute("aria-hidden", "true");
+      // 투명도 트랜지션 보이게 살짝 딜레이로 숨김
+      setTimeout(() => { scrim.hidden = true; }, 180); // 180밀리초 뒤에 검은 막을 숨김
+    }
+
+    menuToggle.addEventListener("click", () => { // 버튼을 눌렀을 때
+      const isOpen = body.dataset.drawer === "open"; // 열린 상태를 isOpen에 저장
+      isOpen ? closeDrawer() : openDrawer(); // 이미 열렸으면 닫고 닫혀 있으면 연다
+    });
+
+    menuClose.addEventListener("click", closeDrawer);
+    scrim.addEventListener("click", closeDrawer);
+
+    // 메뉴 렌더링 (로그인 상태에 따라 다르게) href: 페이지 이동
+    function renderMenu(user) { // 조건 ? 참일 떄 : 거짓일 때
+      const items = user
+        ? [
+            { type: "link", href: "map_my.html", label: "우산 개수 현황", note: "실시간 확인" },
+            { type: "link", href: "index_my.html", label: "우산 공유 서비스란?", note: "소개 보기" },
+            { type: "action", id: "doLogout", label: "로그아웃", note: "계정 종료" }
+          ]
+        : [
+            { type: "link", href: "login_my.html", label: "로그인", note: "계정 접속" },
+            { type: "link", href: "signup_my.html", label: "회원가입", note: "새 계정" },
+            { type: "link", href: "map_my.html", label: "우산 개수 현황", note: "실시간 확인" },
+            { type: "link", href: "index_my.html", label: "우산 공유 서비스란?", note: "소개 보기" }
+          ];
+      // 메뉴를 HTML로 바꾸기 
+      menuList.innerHTML = items.map((it) => { // innerHTML: menuList의 들어갈 내용을 넣거나 바꿈
+        if (it.type === "link") {  // 메뉴가 링크 타입인지 확인 링크면 a 아니면 버튼 (type: link, action) 
+          return `
+            <li> 
+              <a href="${it.href}">
+                <span>${it.label}</span>
+                <small>${it.note ?? ""}</small>
+              </a>
+            </li>
+          `;
+        }
+        return `
+          <li>
+            <button type="button" data-action="${it.id}">
+              <span>${it.label}</span>
+              <small>${it.note ?? ""}</small>
+            </button>
+          </li>
+        `;
+      }).join("");
+    }
+
+    // 로그인 처리
+    loginForm.addEventListener("submit", async (e) => {
+      e.preventDefault(); // 새로고침 막기
+      setStatus("");
+
+      const email = emailInput.value.trim();
+      const password = pwInput.value;
+
+      if (!email || !password) {
+        setStatus("이메일과 비밀번호를 모두 입력해 주세요.", "error");
+        return;
+      }
+
+      loginBtn.disabled = true;
+
+      try {
+        const userCredential = await signInWithEmailAndPassword(auth, email, password);
+        const user = userCredential.user;
+
+        localStorage.setItem("loggedInUser", user.email);
+
+        setStatus("로그인 성공! 이동 중입니다…", "ok");
+        window.location.assign("map_my.html");
+      } catch (err) {
+        setStatus(`로그인 오류: ${err?.message ?? err}`, "error");
+      } finally {
+        loginBtn.disabled = false;
+      }
+    });
+
+    // 로그인 상태 감지 → 메뉴 자동 변경
+    onAuthStateChanged(auth, (user) => {
+      renderMenu(user);
+    });
+  </script>
+</body>
+</html>

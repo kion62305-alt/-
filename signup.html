@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>회원가입</title>
+
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;700&display=swap');
+
+    body, html {
+      margin: 0;
+      padding: 40px 16px 160px;
+      font-family: 'Noto Sans KR', sans-serif;
+      background-color: #f5f5f7;
+      color: #1d1d1f;
+      overflow-y: auto;
+    }
+
+    .container {
+      max-width: 600px;
+      margin: 0 auto;
+      padding: 20px;
+      background-color: white;
+      border-radius: 12px;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+      margin-top: 50px;
+    }
+
+    h1 {
+      font-size: 32px;
+      font-weight: 700;
+      text-align: center;
+      margin-bottom: 20px;
+    }
+
+    form {
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+    }
+
+    label {
+      font-size: 14px;
+      font-weight: 700;
+    }
+
+    input[type="email"],
+    input[type="password"],
+    input[type="text"],
+    input[type="date"],
+    input[type="tel"] {
+      padding: 10px;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      font-size: 16px;
+    }
+
+    button {
+      background-color: #0071e3;
+      color: white;
+      border: none;
+      padding: 10px;
+      border-radius: 8px;
+      font-size: 16px;
+      cursor: pointer;
+      transition: background-color 0.3s ease;
+    }
+
+    button:hover { background-color: #0077ed; }
+
+    .secondary {
+      background-color: #e5e5e5;
+      color: #1d1d1f;
+    }
+    .secondary:hover { background-color: #d9d9d9; }
+
+    #navBar {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      background-color: rgba(255, 255, 255, 0.85);
+      color: #1d1d1f;
+      padding: 10px 15px;
+      border-radius: 25px;
+      cursor: pointer;
+      z-index: 1000;
+      font-size: 24px;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      user-select: none;
+    }
+
+    #navMenu {
+      display: block;
+      position: fixed;
+      top: 0;
+      right: -300px;
+      width: 300px;
+      height: 100%;
+      background-color: rgba(255, 255, 255, 0.95);
+      box-shadow: -2px 0 5px rgba(0, 0, 0, 0.1);
+      transition: right 0.3s ease, opacity 0.3s ease;
+      z-index: 999;
+      padding-top: 60px;
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    #navMenu.open {
+      right: 0;
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    #navMenu a {
+      display: block;
+      padding: 15px 20px;
+      color: #1d1d1f;
+      text-decoration: none;
+      font-size: 18px;
+    }
+    #navMenu a:hover { background-color: #e5e5e5; }
+  </style>
+</head>
+
+<body>
+  <div id="navMenu">
+    <a href="login.html">로그인</a>
+    <a href="signup.html">회원가입</a>
+    <a href="map.html">우산 개수 현황</a>
+    <a href="index.html">우산 공유 서비스란?</a>
+  </div>
+
+  <div class="container">
+    <h1>회원가입</h1>
+
+    <form id="signupForm">
+      <label for="name">이름</label>
+      <input type="text" id="name" placeholder="홍길동" required />
+
+      <label for="birth">생년월일</label>
+      <input type="date" id="birth" required />
+
+      <label for="phone">전화번호</label>
+      <input type="tel" id="phone" placeholder="010-1234-5678" required />
+
+      <label for="email">이메일</label>
+      <input type="email" id="email" placeholder="example@email.com" required />
+
+      <label for="password">비밀번호</label>
+      <input type="password" id="password" placeholder="6자리 이상" required />
+
+      <button type="submit">회원가입</button>
+      <button type="button" class="secondary" id="loginButton">로그인하러 가기</button>
+    </form>
+  </div>
+
+  <script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-app.js";
+  import { getAuth, createUserWithEmailAndPassword, updateProfile } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-auth.js";
+  import { getDatabase, ref, set, update } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-database.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyCl5Ghpk2esbDZprJQIshjWHYxFXvWRh68",
+    authDomain: "raspi-autoumb.firebaseapp.com",
+    projectId: "raspi-autoumb",
+    databaseURL: "https://raspi-autoumb-default-rtdb.firebaseio.com",
+    storageBucket: "raspi-autoumb.firebasestorage.app",
+    messagingSenderId: "702710947231",
+    appId: "1:702710947231:web:a25cceb21ebff2b52f31aa"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  const db = getDatabase(app);
+
+  const $ = (selector) => document.querySelector(selector);
+
+  const elements = {
+    form: $("#signupForm"),
+    nameInput: $("#name"),
+    birthInput: $("#birth"),
+    phoneInput: $("#phone"),
+    emailInput: $("#email"),
+    passwordInput: $("#password"),
+    loginButton: $("#loginButton"),
+    navBar: $("#navBar"),
+    navMenu: $("#navMenu"),
+    submitButton: document.querySelector('#signupForm button[type="submit"]')
+   };
+
+  const state = {
+    menuOpen: false,
+    isSubmitting: false
+  };
+
+  function validateForm({ name, birth, phone, email, password }) {
+  if (!name) {
+    alert("이름을 입력해주세요.");
+    return false;
+  }
+
+  if (!birth) {
+    alert("생년월일을 입력해주세요.");
+    return false;
+  }
+
+  if (!phone) {
+    alert("전화번호를 입력해주세요.");
+    return false;
+  }
+
+  const phonePattern = /^01[0-9]-?\d{3,4}-?\d{4}$/;
+  if (!phonePattern.test(phone)) {
+    alert("전화번호 형식이 올바르지 않아요. (예: 010-1234-5678)");
+    return false;
+  }
+
+  if (!email) {
+    alert("이메일을 입력해주세요.");
+    return false;
+  }
+
+  if (!password) {
+    alert("비밀번호를 입력해주세요.");
+    return false;
+  }
+
+  if (password.length < 6) {
+    alert("비밀번호는 6자 이상이어야 합니다.");
+    return false;
+  }
+
+  return true;
+}
+
+  function getKoreanAuthErrorMessage(error) {
+    const code = error?.code || "";
+
+    const errorMap = {
+      "auth/email-already-in-use": "이미 사용 중인 이메일이에요.",
+      "auth/invalid-email": "이메일 형식이 올바르지 않아요.",
+      "auth/weak-password": "비밀번호가 너무 약해요. 6자 이상 입력해주세요.",
+      "auth/network-request-failed": "네트워크 오류가 발생했어요. 인터넷 연결을 확인해주세요."
+    };
+
+    return errorMap[code] || `회원가입 중 오류가 발생했어요. (${code || error.message})`;
+  }
+
+  function setLoading(isLoading) {
+    state.isSubmitting = isLoading;
+    elements.submitButton.disabled = isLoading;
+    elements.submitButton.textContent = isLoading ? "가입 처리 중..." : "회원가입";
+    elements.submitButton.style.opacity = isLoading ? "0.7" : "1";
+    elements.submitButton.style.cursor = isLoading ? "not-allowed" : "pointer";
+  }
+
+  async function saveInitialUserData(user, formdata) {
+    const userRef = ref(db, `users/${user.uid}`);
+
+    await set(userRef, {
+      profile: {
+        email: user.email,
+        name: formdata.name,
+        birth: formdata.birth,
+        phone: formdata.phone,
+        createdAt: Date.now()
+      },
+      currentRental: {
+        rent: false,
+        stand_id: null,
+        space: null,
+        rentalStartTime: null,
+        returnDeadline: null
+      }
+    });
+  }
+
+  async function handleSignup(event) {
+    event.preventDefault();
+
+  if (state.isSubmitting) return;
+
+  const formData = {
+    name: elements.nameInput.value.trim(),
+    birth: elements.birthInput.value,
+    phone: elements.phoneInput.value.trim(),
+    email: elements.emailInput.value.trim(),
+    password: elements.passwordInput.value
+  };
+
+  if (!validateForm(formData)) return;
+
+  try {
+    setLoading(true);
+
+    const credential = await createUserWithEmailAndPassword(
+      auth,
+      formData.email,
+      formData.password,
+    );
+
+    await updateProfile(credential.user, {
+      displayName: formData.name
+    });
+
+    await saveInitialUserData(credential.user, formData);
+
+    localStorage.setItem("userName", formData.name);
+
+    alert("회원가입이 완료되었습니다. 우산 개수 현황 페이지로 이동합니다.");
+    window.location.href = "map.html";
+  } catch (error) {
+    console.error("[회원가입 오류]", error);
+    alert(getKoreanAuthErrorMessage(error));
+  } finally {
+    setLoading(false);
+  }
+}
+
+  function moveToLoginPage() {
+    window.location.href = "login.html";
+  }
+
+  function bindEvents() {
+    elements.form.addEventListener("submit", handleSignup);
+    elements.loginButton.addEventListener("click", moveToLoginPage);
+    elements.navBar.addEventListener("click", toggleMenu);
+    document.addEventListener("click", closeMenuOnOutsideClick);
+  }
+
+  bindEvents();
+  </script>
+</body>
+</html>

@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>지하철 우산 예약 서비스</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.1/css/all.min.css">
+<style>
+    body {
+        font-family: 'Arial', sans-serif;
+        margin: 0;
+        padding: 0;
+        background-color: #f4f4f4;
+        color: #333;
+    }
+
+    .header {
+        position: relative;
+        overflow: hidden;
+        color: #fff;
+        padding: 60px 20px;
+        text-align: center;
+        background-image:
+            linear-gradient(rgba(0, 0, 0, 0.12), rgba(0, 0, 0, 0.18)),
+            url('https://example.com/header-background.jpg');
+        background-size: cover;
+        background-position: center;
+        background-repeat: no-repeat;
+        border-radius: 0 0 24px 24px;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+    }
+
+    .header h1 {
+        margin: 0;
+        font-size: 2rem;
+        font-weight: 700;
+        letter-spacing: -0.5px;
+        text-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
+    }
+
+    .nav-bar {
+        background: rgba(51, 51, 51, 0.95);
+        color: #fff;
+        padding: 14px 18px;
+        text-align: center;
+        border-radius: 14px;
+        width: fit-content;
+        margin: 10px auto;
+        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.18);
+        backdrop-filter: blur(6px);
+        opacity: 0;
+        transform: translateY(20px);
+        animation: fadeInUp 0.8s ease forwards;
+    }
+
+    .nav-bar a {
+        color: #fff;
+        padding: 10px 16px;
+        margin: 0 4px;
+        text-decoration: none;
+        font-size: 16px;
+        font-weight: 500;
+        display: inline-block;
+        border-radius: 10px;
+        transition: all 0.25s ease;
+    }
+
+    .nav-bar a:hover {
+        background-color: #ddd;
+        color: #111;
+        transform: translateY(-2px);
+    }
+
+    @keyframes fadeInUp {
+        from {
+            opacity: 0;
+            transform: translateY(20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    .content {
+        max-width: 900px;
+        margin: 24px auto 100px;
+        padding: 20px;
+    }
+
+    .section-card {
+        padding: 24px;
+        background-color: white;
+        box-shadow: 0 0 10px rgba(0,0,0,0.08);
+        border-radius: 18px;
+        margin-bottom: 18px;
+    }
+
+    .section-card h2 {
+        margin-top: 0;
+    }
+
+    .status-box {
+        margin-top: 18px;
+        padding: 14px 16px;
+        border-radius: 12px;
+        font-weight: 700;
+        line-height: 1.6;
+        display: none;
+    }
+
+    .status-box.info {
+        display: block;
+        background: #eef5ff;
+        color: #1a73e8;
+    }
+
+    .status-box.success {
+        display: block;
+        background: #eef9f0;
+        color: #0f6b2f;
+    }
+
+    .footer {
+        background-color: #009688;
+        color: #fff;
+        text-align: center;
+        padding: 10px;
+        position: fixed;
+        bottom: 0;
+        width: 100%;
+    }
+
+    .icon {
+        color: #009688;
+        margin-right: 8px;
+    }
+
+    #welcomeBox {
+        text-align: center;
+        margin-top: 14px;
+        font-size: 18px;
+        font-weight: bold;
+        color: #009688;
+    }
+</style>
+</head>
+<body>
+
+<div class="header">
+    <h1><i class="fas fa-umbrella icon"></i>우산 예약 서비스입니다.</h1>
+</div>
+
+<div id="welcomeBox"></div>
+
+<div class="nav-bar">
+    <a href="#" id="returnLink"><i class="fas fa-reply icon"></i>반환하기</a> |
+    <a href="signup_my.html" id="signupLink"><i class="fas fa-user-plus icon"></i>회원가입</a> |
+    <a href="login_my.html" id="loginLink"><i class="fas fa-sign-in-alt icon"></i>로그인</a> |
+    <a href="#" id="logoutLink"><i class="fas fa-sign-out-alt icon"></i>로그아웃</a> |
+    <a href="map_my.html" id="map"><i class="fas fa-umbrella icon"></i>우산 예약</a>
+
+</div>
+
+<div class="content">
+    <div class="section-card">
+        <h2>소개</h2>
+        <p>안녕하세요. 쉽고 편리하게 이용할 수 있는 우산 예약 서비스입니다.</p>
+        <div id="rentalStatus" class="status-box"></div>
+    </div>
+</div>
+
+<div class="footer">
+    <p>안내사항 문의 tell <i class="fas fa-phone-alt icon"></i>031-670-1111</p>
+</div>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-app.js";
+  import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-auth.js";
+  import { getDatabase, ref, get } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-database.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyCl5Ghpk2esbDZprJQIshjWHYxFXvWRh68",
+    authDomain: "raspi-autoumb.firebaseapp.com",
+    databaseURL: "https://raspi-autoumb-default-rtdb.firebaseio.com",
+    projectId: "raspi-autoumb",
+    storageBucket: "raspi-autoumb.firebasestorage.app",
+    messagingSenderId: "702710947231",
+    appId: "1:702710947231:web:a25cceb21ebff2b52f31aa"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  const db = getDatabase(app);
+
+  const welcomeBox = document.getElementById("welcomeBox");
+  const loginLink = document.getElementById("loginLink");
+  const signupLink = document.getElementById("signupLink");
+  const logoutLink = document.getElementById("logoutLink");
+  const returnLink = document.getElementById("returnLink");
+  const rentalStatus = document.getElementById("rentalStatus");
+
+  const standNames = {
+    stand_1: "평택역",
+    stand_2: "평택지제역",
+    stand_3: "서정리역"
+  };
+
+  function updateLoginUI(user) {
+    if (user) {
+      const username = localStorage.getItem("userName") || user.email || "사용자";
+      welcomeBox.textContent = `${username}님 환영합니다.`;
+      loginLink.style.display = "inline-block";
+      signupLink.style.display = "inline-block";
+      logoutLink.style.display = "inline-block";
+    } else {
+      welcomeBox.textContent = "";
+      loginLink.style.display = "inline-block";
+      signupLink.style.display = "inline-block";
+      logoutLink.style.display = "inline-block";
+    }
+  }
+
+  async function updateRentalStatusUI(user) {
+    if (!user) {
+      rentalStatus.className = "status-box info";
+      rentalStatus.textContent = "현재 대여 중인 우산이 없습니다.";
+      return;
+    }
+
+    const snapshot = await get(ref(db, `users/${user.uid}/currentRental`));
+    const rentalData = snapshot.exists() ? snapshot.val() : null;
+
+    if (rentalData && rentalData.rented === true) {
+      const standName = standNames[rentalData.stand] || rentalData.stand;
+      rentalStatus.className = "status-box success";
+      rentalStatus.textContent = `현재 ${standName} ${rentalData.box}번 보관함 우산을 대여 중입니다.`;
+    } else {
+      rentalStatus.className = "status-box info";
+      rentalStatus.textContent = "현재 대여 중인 우산이 없습니다.";
+    }
+  }
+
+  async function goToReturnPage() {
+    const user = auth.currentUser;
+
+    if (!user) {
+      alert("로그인을 해야 합니다.");
+      location.href = "login_my.html";
+      return;
+    }
+
+    const snapshot = await get(ref(db, `users/${user.uid}/currentRental`));
+    const rentalData = snapshot.exists() ? snapshot.val() : null;
+
+    if (!rentalData || rentalData.rented !== true) {
+      alert("현재 대여 중인 우산이 없습니다.");
+      return;
+    }
+
+    location.href = `qr_my.html?stand=${rentalData.stand}&action=return`;
+  }
+
+  returnLink.addEventListener("click", async function (e) {
+    e.preventDefault();
+    await goToReturnPage();
+  });
+
+  logoutLink.addEventListener("click", async function (e) {
+    e.preventDefault();
+    await signOut(auth);
+    localStorage.removeItem("loggedInUser");
+    localStorage.removeItem("userName");
+    alert("로그아웃되었습니다.");
+    location.reload();
+  });
+
+  onAuthStateChanged(auth, async (user) => {
+    updateLoginUI(user);
+    await updateRentalStatusUI(user);
+  });
+</script>
+
+</body>
+</html>

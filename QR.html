@@ -1,0 +1,581 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>QR 인증</title>
+  <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #f4f4f4;
+      color: #222;
+    }
+
+    .panel {
+      max-width: 720px;
+      margin: 30px auto;
+      background: #fff;
+      border-radius: 18px;
+      box-shadow: 0 8px 30px rgba(0,0,0,0.08);
+      padding: 24px;
+    }
+
+    .mode-badge {
+      display: inline-block;
+      padding: 8px 12px;
+      border-radius: 999px;
+      font-size: 14px;
+      font-weight: 700;
+      margin-bottom: 14px;
+    }
+
+    .mode-badge.rent {
+      background: #e8f5e9;
+      color: #1b5e20;
+    }
+
+    .mode-badge.return {
+      background: #fff3e0;
+      color: #e65100;
+    }
+
+    h1 {
+      margin: 0 0 8px;
+      font-size: 28px;
+    }
+
+    .sub {
+      margin: 0 0 18px;
+      color: #666;
+      line-height: 1.5;
+    }
+
+    .info-box {
+      margin: 14px 0 18px;
+      padding: 14px 16px;
+      border-radius: 12px;
+      background: #eef5ff;
+      color: #1a73e8;
+      font-weight: 700;
+    }
+
+    .info-box.return {
+      background: #fff3e0;
+      color: #e65100;
+    }
+
+    .scanner-wrap {
+      margin: 20px 0;
+    }
+
+    #reader {
+      width: 100%;
+    }
+
+    #result {
+      margin-top: 16px;
+      padding: 14px 16px;
+      border-radius: 12px;
+      background: #f5f5f5;
+      line-height: 1.6;
+      font-weight: 700;
+    }
+
+    #result.success {
+      background: #e8f5e9;
+      color: #1b5e20;
+    }
+
+    #result.error {
+      background: #ffebee;
+      color: #b71c1c;
+    }
+
+    .actions {
+      display: flex;
+      gap: 10px;
+      margin-top: 16px;
+      flex-wrap: wrap;
+    }
+
+    .reset-btn,
+    .home-btn {
+      display: none;
+      border: none;
+      border-radius: 10px;
+      padding: 12px 16px;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .reset-btn {
+      background: #009688;
+      color: #fff;
+    }
+
+    .home-btn {
+      background: #555;
+      color: #fff;
+    }
+
+    .hint {
+      margin-top: 14px;
+      font-size: 14px;
+      color: #666;
+      line-height: 1.5;
+    }
+  </style>
+</head>
+<body>
+  <div class="panel">
+    <div id="modeBadge" class="mode-badge">현재 모드</div>
+    <h1 id="pageTitle">QR 인증</h1>
+    <p class="sub" id="subText">보관함에 부착된 QR코드를 스캔해 진행해주세요.</p>
+
+    <div class="info-box" id="infoBox">이용 정보를 불러오는 중...</div>
+
+    <div class="scanner-wrap">
+      <div id="reader"></div>
+    </div>
+
+    <div id="result">QR코드를 스캔해주세요.</div>
+
+    <div class="actions">
+      <button id="resetBtn" class="reset-btn">다시 스캔</button>
+      <button id="homeBtn" class="home-btn">홈으로</button>
+    </div>
+
+    <p class="hint">카메라 권한을 허용한 뒤 보관함 QR코드를 스캔해주세요.</p>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-app.js";
+    import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-auth.js";
+    import { getDatabase, ref, push, set, get, remove, update } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-database.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyCl5Ghpk2esbDZprJQIshjWHYxFXvWRh68",
+      authDomain: "raspi-autoumb.firebaseapp.com",
+      databaseURL: "https://raspi-autoumb-default-rtdb.firebaseio.com",
+      projectId: "raspi-autoumb",
+      storageBucket: "raspi-autoumb.firebasestorage.app",
+      messagingSenderId: "702710947231",
+      appId: "1:702710947231:web:a25cceb21ebff2b52f31aa"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getDatabase(app);
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const standId = urlParams.get("stand");
+    const action = urlParams.get("action") || "rent";
+
+    const pageTitle = document.getElementById("pageTitle");
+    const modeBadge = document.getElementById("modeBadge");
+    const subText = document.getElementById("subText");
+    const infoBox = document.getElementById("infoBox");
+    const resultEl = document.getElementById("result");
+    const resetBtn = document.getElementById("resetBtn");
+    const homeBtn = document.getElementById("homeBtn");
+
+    const standNames = {
+      stand_1: "평택역",
+      stand_2: "평택지제역",
+      stand_3: "서정리역"
+    };
+
+    let html5QrcodeScanner = null;
+    let scanLocked = false;
+    let currentStand = null;
+    let currentBox = null;
+
+    async function openLockerDevice() {
+      const lockerId = `BOX_${currentBox}`;
+      const response = await fetch(`/open/${encodeURIComponent(action)}/${encodeURIComponent(lockerId)}`);
+      const data = await response.json();
+
+      if (!response.ok) {
+      throw new Error(data.message || "라즈베리파이 요청 실패");
+    }
+
+    return data;
+  }
+
+    function setDefaultStyle() {
+      resultEl.className = "";
+    }
+
+    function setErrorStyle() {
+      resultEl.className = "error";
+    }
+
+    function setSuccessStyle() {
+      resultEl.className = "success";
+    }
+
+    function showResetButton() {
+      resetBtn.style.display = "inline-block";
+    }
+
+    function hideResetButton() {
+      resetBtn.style.display = "none";
+    }
+
+    function showHomeButton() {
+      homeBtn.style.display = "inline-block";
+    }
+
+    function hideHomeButton() {
+      homeBtn.style.display = "inline-block";
+    }
+
+    function applyPageMode() {
+      if (action === "return") {
+        pageTitle.textContent = "우산 반납 QR 인증";
+        modeBadge.textContent = "현재 모드: 반납";
+        modeBadge.className = "mode-badge return";
+        subText.textContent = "반납할 우산의 보관함 QR코드를 스캔해주세요.";
+        infoBox.classList.add("return");
+        infoBox.textContent = "반납 정보를 확인해주세요.";
+        resultEl.textContent = "반납할 보관함 QR코드를 스캔해주세요.";
+      } else {
+        pageTitle.textContent = "우산 대여 QR 인증";
+        modeBadge.textContent = "현재 모드: 대여";
+        modeBadge.className = "mode-badge rent";
+        subText.textContent = "대여할 우산이 있는 보관함의 QR코드를 스캔해주세요.";
+        infoBox.classList.remove("return");
+        infoBox.textContent = "대여 정보를 확인해주세요.";
+        resultEl.textContent = "대여할 보관함 QR코드를 스캔해주세요.";
+      }
+    }
+
+    function parseQr(decodedText) {
+      let qrStand = null;
+      let qrBox = null;
+      const text = String(decodedText || "").trim();
+
+      const simpleBoxMatch = text.match(/^BOX[_-](\d+)$/i);
+      if (simpleBoxMatch) {
+        qrBox = simpleBoxMatch[1];
+        return { qrStand, qrBox };
+      }
+
+      const numberOnlyMatch = text.match(/^(\d+)$/);
+      if (numberOnlyMatch) {
+        qrBox = numberOnlyMatch[1];
+        return { qrStand, qrBox };
+      }
+
+      try {
+        const url = new URL(text, window.location.origin);
+        const urlSearch = new URLSearchParams(url.search);
+        qrStand = urlSearch.get("stand");
+        qrBox = urlSearch.get("box");
+        if (qrBox) return { qrStand, qrBox };
+      } catch (e) {}
+
+      if (text.includes("box=")) {
+        const query = text.includes("?") ? text.split("?")[1] : text;
+        const searchParams = new URLSearchParams(query);
+        qrStand = searchParams.get("stand");
+        qrBox = searchParams.get("box");
+        if (qrBox) return { qrStand, qrBox };
+      }
+
+      return { qrStand: null, qrBox: null };
+    }
+
+    async function stopScanner() {
+      try {
+        if (html5QrcodeScanner) {
+          await html5QrcodeScanner.clear();
+          html5QrcodeScanner = null;
+        }
+      } catch (e) {
+        console.log("scanner clear error", e);
+      }
+    }
+
+    function goBackToIndex(delay = 1800) {
+      setTimeout(() => {
+        location.href = "index.html";
+      }, delay);
+    }
+
+    async function saveScanLog(type, stand, box, rawText, fee = 0) {
+      const user = auth.currentUser;
+      if (!user) return;
+
+      try {
+        await set(push(ref(db, "qr_logs")), {
+          type,
+          stand,
+          box: String(box),
+          rawText,
+          userId: user.uid,
+          userEmail: user.email,
+          lateFee: fee,
+          time: new Date().toISOString(),
+          timeKR: new Date().toLocaleString("ko-KR", {
+            timeZone: "Asia/Seoul",
+            year: "numeric",
+            month: "2-digit",
+            day: "2-digit",
+            hour: "2-digit",
+            minute: "2-digit",
+            second: "2-digit"
+          })
+        });
+      } catch (e) {
+        console.error("로그 저장 실패:", e);
+      }
+    }
+
+    async function getRentalData() {
+      const user = auth.currentUser;
+      if (!user) return null;
+
+      const snapshot = await get(ref(db, `users/${user.uid}/currentRental`));
+      return snapshot.exists() ? snapshot.val() : null;
+    }
+
+    async function saveCurrentRental() {
+      console.log("saveCurrentRental 실행");
+      alert("우산이 대여되었습니다.");
+
+      const user = auth.currentUser;
+      if (!user) throw new Error("로그인 정보가 없습니다.");
+
+      const rentedAt = new Date();
+      const dueAt = new Date(rentedAt.getTime() + 1 * 1000);
+
+      await set(ref(db, `users/${user.uid}/currentRental`), {
+        stand: currentStand,
+        box: String(currentBox),
+        rented: true,
+        rentedAt: rentedAt.toISOString(),
+        dueAt: dueAt.toISOString(),
+        status: "rented"
+      });
+
+      alert("이용해주셔서 감사합니다");
+    }
+
+    function calculateLateFee(rentalData) {
+      if (!rentalData?.dueAt) return 0;
+
+      const now = new Date();
+      const due = new Date(rentalData.dueAt);
+
+      if (now <= due) return 0;
+
+      const diffMs = now.getTime() - due.getTime();
+      const diffHours = Math.ceil(diffMs / (1000 * 60 * 60));
+      return diffHours * 5000;
+    }
+
+    async function completeRent() {
+      try {
+        await openLockerDevice();
+      } catch (e) {
+      console.error("장치 열기 실패:", e);
+      }
+
+      await saveCurrentRental();
+      await saveScanLog("rent", currentStand, currentBox, `stand=${currentStand}&box=${currentBox}`, 0);
+
+      setSuccessStyle();
+      resultEl.textContent = `${currentBox}번 보관함이 열렸습니다. 우산이 대여되었습니다.`;
+
+      showHomeButton();
+      showResetButton();
+      scanLocked = false;
+    }
+
+    async function completeReturn(rentalData) {
+      const user = auth.currentUser;
+      if (!user) {
+        setErrorStyle();
+        resultEl.textContent = "로그인이 필요합니다.";
+        showHomeButton();
+        scanLocked = false;
+        return;
+      }
+
+      const lateFee = calculateLateFee(rentalData);
+
+      try {
+        await remove(ref(db, `users/${user.uid}/currentRental`));
+      } catch (e) {
+        console.error("currentRental 삭제 실패:", e);
+      }
+
+      try {
+        const standRef = ref(db, `umbrella_stands/umbrellaStands/${currentStand}`);
+        const countRef = ref(db, `umbrella_stands/umbrellaStands/${currentStand}/totalUmbrellas`);
+
+        const snap = await get(countRef);
+        const currentCount = Number(snap.val() ?? 0);
+
+        await update(standRef, {
+          totalUmbrellas: currentCount + 1
+      });
+
+      alert(`우산이 반납되었습니다. 오늘도 좋은 하루 보내십시오.`);
+    } catch (e) {
+      alert("우산 개수 증가 실패: " + e.message);
+      console.error("우산 개수 증가 실패:", e);
+    }
+      
+      try {
+        await openLockerDevice();
+      } catch (e) {
+        console.error("장치 열기 실패:", e);
+      }
+
+      await saveScanLog(
+        "return",
+        currentStand,
+        currentBox,
+        `stand=${currentStand}&box=${currentBox}`,
+        lateFee
+      );
+
+      setSuccessStyle();
+      resultEl.textContent =
+        lateFee > 0
+          ? `${currentBox}번 보관함이 열렸습니다. 우산이 반납되었습니다. 연체요금은 ${lateFee.toLocaleString()}원입니다.`
+          : `${currentBox}번 보관함이 열렸습니다. 우산이 반납되었습니다.`;
+
+      showHomeButton();
+      showResetButton();
+      scanLocked = false;
+    }
+
+    async function handleScannedQr(qrStand, qrBox) {
+      if (scanLocked) return;
+      scanLocked = true;
+
+      await stopScanner();
+
+      if (!qrBox) {
+        setErrorStyle();
+        resultEl.textContent = "잘못된 QR코드입니다.";
+        showResetButton();
+        showHomeButton();
+        scanLocked = false;
+        return;
+      }
+
+      if (standId && qrStand && standId !== qrStand) {
+        setErrorStyle();
+        resultEl.textContent = `선택한 역은 ${standNames[standId]}이고, 스캔한 QR은 ${standNames[qrStand] || qrStand}입니다.`;
+        showResetButton();
+        showHomeButton();
+        scanLocked = false;
+        return;
+      }
+
+      currentStand = qrStand || standId || null;
+      currentBox = String(qrBox);
+
+      const currentStandName = standNames[currentStand] || currentStand || "알 수 없는 역";
+      infoBox.textContent = `${currentStandName} · ${currentBox}번 보관함`;
+
+      const rentalData = await getRentalData();
+
+      if (action === "return") {
+        if (!rentalData || rentalData.rented !== true) {
+          setErrorStyle();
+          resultEl.textContent = "현재 대여 중인 우산이 없어 반납할 수 없어요.";
+          showResetButton();
+          showHomeButton();
+          scanLocked = false;
+          return;
+        }
+
+        await completeReturn(rentalData);
+        return;
+      }
+
+      if (rentalData && rentalData.rented === true) {
+        setErrorStyle();
+        resultEl.textContent = `이미 ${rentalData.box}번 보관함 우산을 대여 중입니다. 먼저 반납해주세요.`;
+        showResetButton();
+        showHomeButton();
+        scanLocked = false;
+        return;
+      }
+
+      await completeRent();
+    }
+
+    async function onScanSuccess(decodedText) {
+      if (scanLocked) return;
+
+      try {
+        const { qrStand, qrBox } = parseQr(decodedText);
+        await handleScannedQr(qrStand, qrBox);
+      } catch (e) {
+        console.error("QR 처리 오류:", e);
+        setErrorStyle();
+        resultEl.textContent = "처리 중 오류가 발생했어요. 다시 시도해주세요.";
+        showResetButton();
+        showHomeButton();
+        scanLocked = false;
+      }
+    }
+
+    function startScanner() { // 카메라 on
+      if (html5QrcodeScanner) return;
+
+      html5QrcodeScanner = new Html5QrcodeScanner(
+        "reader",
+        {
+          fps: 10,
+          qrbox: { width: 220, height: 220 },
+          rememberLastUsedCamera: true
+        },
+        false
+      );
+
+      html5QrcodeScanner.render(onScanSuccess);
+    }
+
+    resetBtn.addEventListener("click", async function () {
+      await stopScanner();
+      document.getElementById("reader").innerHTML = "";
+      currentBox = null;
+      currentStand = null;
+      scanLocked = false;
+      hideResetButton();
+      hideHomeButton();
+      setDefaultStyle();
+      applyPageMode();
+      startScanner();
+    });
+
+    homeBtn.addEventListener("click", function () {
+      location.href = "index.html";
+    });
+
+    setDefaultStyle();
+    applyPageMode();
+
+    onAuthStateChanged(auth, (user) => {
+      if (!user) {
+        alert("로그인이 필요합니다.");
+        location.href = "login_my.html";
+        return;
+      }
+      startScanner();
+    });
+  </script>
+</body>
+</html>
